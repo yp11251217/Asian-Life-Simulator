@@ -2,36 +2,23 @@ import streamlit as st
 import random
 
 # =========================================================
-# GTA-STYLE LIFE SIMULATOR (MAP VERSION)
+# SETUP
 # =========================================================
-
-st.set_page_config(page_title="Life Simulator GTA Map", page_icon="🗺️", layout="centered")
+st.set_page_config(page_title="GTA Mario Life Sim", page_icon="🗺️", layout="centered")
 
 # =========================================================
 # INIT STATE
 # =========================================================
 def init():
     defaults = {
-        "location": "Home",
-        "age": 6,
-        "grade": 1,
-        "intelligence": 50,
+        "x": 5,
+        "y": 5,
+        "iq": 50,
         "happiness": 50,
-        "energy": 100,
         "stress": 20,
+        "energy": 100,
         "money": 0,
-        "reputation": 0,
-        "inventory": [],
-        "message": "You wake up at home. Expectations await.",
-        "unlocked": {
-            "Home": True,
-            "School": True,
-            "Tuition Center": False,
-            "Park": False,
-            "Mall": False,
-            "City": False
-        },
-        "day": 1
+        "message": "You spawned in the world.",
     }
 
     for k, v in defaults.items():
@@ -41,153 +28,165 @@ def init():
 init()
 
 # =========================================================
-# MAP SYSTEM
+# WORLD SETTINGS (GRID MAP)
 # =========================================================
-MAP = {
-    "Home": {
-        "desc": "Strict household. Study or suffer emotional damage.",
-        "study": (10, -10, 5),
-        "sleep": (20, 5, 0)
-    },
-    "School": {
-        "desc": "Competitive school environment.",
-        "study": (15, -5, 10),
-        "exam": (25, -15, 20)
-    },
-    "Tuition Center": {
-        "desc": "Extra classes because 'not enough'.",
-        "study": (20, -10, 15)
-    },
-    "Park": {
-        "desc": "Rare happiness zone.",
-        "relax": (10, 20, -10)
-    },
-    "Mall": {
-        "desc": "Spend money for temporary happiness.",
-        "shop": (0, 15, 0)
-    },
-    "City": {
-        "desc": "Late game unlocked area.",
-        "job": (30, -10, 25)
-    }
+WORLD_SIZE = 11
+
+zones = {
+    (5, 5): "🏠 Home",
+    (2, 2): "🏫 School",
+    (8, 2): "📚 Tuition",
+    (2, 8): "🌳 Park",
+    (8, 8): "🏙️ City",
 }
 
 # =========================================================
-# UI
+# MOVE SYSTEM
 # =========================================================
-st.title("🗺️ GTA: Academic Life Edition")
+def move(dx, dy):
+    st.session_state.x = max(0, min(WORLD_SIZE - 1, st.session_state.x + dx))
+    st.session_state.y = max(0, min(WORLD_SIZE - 1, st.session_state.y + dy))
 
-st.write(f"Location: {st.session_state.location}")
+    st.session_state.energy -= 1
+
+    st.session_state.message = "You moved."
+
+# =========================================================
+# CURRENT LOCATION DETECTION
+# =========================================================
+def get_zone():
+    return zones.get((st.session_state.x, st.session_state.y), "🟫 Street")
+
+# =========================================================
+# BACKGROUND STYLE (FAKE GAME LOOK)
+# =========================================================
+st.markdown("""
+<style>
+body {
+    background-color: #1e1e2f;
+    color: white;
+}
+
+.game-title {
+    text-align: center;
+    font-size: 40px;
+    font-weight: bold;
+    color: #ffd166;
+}
+
+.map {
+    font-family: monospace;
+    font-size: 18px;
+    line-height: 18px;
+    text-align: center;
+    background: #111;
+    padding: 10px;
+    border-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =========================================================
+# TITLE
+# =========================================================
+st.markdown("<div class='game-title'>🗺️ GTA MARIO LIFE SIM</div>", unsafe_allow_html=True)
+
+st.write("Location:", get_zone())
 st.write(st.session_state.message)
 
 # =========================================================
-# MAP DISPLAY
+# RENDER GRID MAP (MARIO STYLE)
 # =========================================================
-st.subheader("📍 Map")
+def draw_map():
+    grid = ""
 
-cols = st.columns(3)
-locations = list(MAP.keys())
+    for y in range(WORLD_SIZE):
+        for x in range(WORLD_SIZE):
 
-for i, loc in enumerate(locations):
-    col = cols[i % 3]
-    locked = not st.session_state.unlocked.get(loc, False)
+            if x == st.session_state.x and y == st.session_state.y:
+                grid += "🧍"
+            elif (x, y) in zones:
+                grid += "🏠"
+            else:
+                grid += "⬜"
+        grid += "\n"
 
-    with col:
-        if locked:
-            st.button(f"🔒 {loc}", disabled=True)
-        else:
-            if st.button(f"📍 {loc}"):
-                st.session_state.location = loc
-                st.session_state.message = f"You moved to {loc}"
-                st.rerun()
+    return grid
+
+st.markdown("### 🗺️ World Map")
+st.text(draw_map())
 
 # =========================================================
-# ACTIONS
+# MOVEMENT CONTROLS
 # =========================================================
-st.subheader("🎮 Actions")
+st.markdown("### 🎮 Controls")
 
-loc = st.session_state.location
-area = MAP[loc]
+c1, c2, c3 = st.columns(3)
 
-col1, col2, col3 = st.columns(3)
-
-if "study" in area:
-    if col1.button("📖 Study"):
-        iq, hap, stress = area["study"]
-        st.session_state.intelligence += iq
-        st.session_state.happiness += hap
-        st.session_state.stress += stress
-        st.session_state.message = "You studied. Expectations increased."
+with c1:
+    if st.button("⬅️"):
+        move(-1, 0)
         st.rerun()
 
-if "sleep" in area:
-    if col2.button("😴 Rest"):
-        e, h, s = area["sleep"]
-        st.session_state.energy += e
-        st.session_state.happiness += h
-        st.session_state.stress += s
-        st.session_state.message = "You rested."
+    if st.button("⬇️"):
+        move(0, 1)
         st.rerun()
 
-if "relax" in area:
-    if col2.button("😴 Relax"):
-        e, h, s = area["relax"]
-        st.session_state.energy += e
-        st.session_state.happiness += h
-        st.session_state.stress += s
-        st.session_state.message = "You relaxed at the park."
+with c2:
+    if st.button("⬆️"):
+        move(0, -1)
         st.rerun()
 
-if "exam" in area:
-    if col3.button("📝 Exam"):
-        iq, hap, stress = area["exam"]
-        st.session_state.intelligence += iq
-        st.session_state.happiness += hap
-        st.session_state.stress += stress
-        st.session_state.message = "Exam completed. Emotional damage increased."
+with c3:
+    if st.button("➡️"):
+        move(1, 0)
         st.rerun()
 
-if "shop" in area:
-    if col3.button("🛍️ Shop"):
-        st.session_state.happiness += 15
-        st.session_state.money -= 10
-        st.session_state.message = "You bought temporary happiness."
+# =========================================================
+# ACTIONS BASED ON LOCATION
+# =========================================================
+zone = get_zone()
+
+st.markdown("### 🎮 Actions")
+
+if zone == "🏠 Home":
+    if st.button("📖 Study"):
+        st.session_state.iq += 5
+        st.session_state.stress += 5
+        st.session_state.message = "You studied at home. Pressure increased."
         st.rerun()
 
-if "job" in area:
-    if col3.button("💼 Work"):
-        st.session_state.money += 50
+    if st.button("😴 Sleep"):
+        st.session_state.energy += 20
+        st.session_state.message = "You slept at home."
+        st.rerun()
+
+elif zone == "🏫 School":
+    if st.button("📝 Exam"):
+        st.session_state.iq += 10
+        st.session_state.stress += 15
+        st.session_state.message = "You took an exam. Pain increased."
+        st.rerun()
+
+elif zone == "📚 Tuition":
+    if st.button("📚 Extra Study"):
+        st.session_state.iq += 15
         st.session_state.stress += 20
-        st.session_state.message = "You worked a stressful job."
+        st.session_state.message = "Tuition class activated: EMOTIONAL DAMAGE."
         st.rerun()
 
-# =========================================================
-# NEXT DAY PROGRESSION
-# =========================================================
-st.markdown("---")
+elif zone == "🌳 Park":
+    if st.button("😌 Relax"):
+        st.session_state.happiness += 20
+        st.session_state.stress -= 10
+        st.session_state.message = "You feel slightly human again."
+        st.rerun()
 
-if st.button("🎂 Next Day"):
-    st.session_state.day += 1
-    st.session_state.energy -= 5
-
-    st.session_state.message = random.choice([
-        "Parents compare you to cousin.",
-        "Extra tutoring added.",
-        "You feel burnout.",
-        "Another strict day passed.",
-        "You survive."
-    ])
-
-    if st.session_state.intelligence > 80:
-        st.session_state.unlocked["Tuition Center"] = True
-    if st.session_state.intelligence > 120:
-        st.session_state.unlocked["Park"] = True
-    if st.session_state.intelligence > 150:
-        st.session_state.unlocked["Mall"] = True
-    if st.session_state.intelligence > 180:
-        st.session_state.unlocked["City"] = True
-
-    st.rerun()
+elif zone == "🏙️ City":
+    if st.button("💼 Work Job"):
+        st.session_state.money += 50
+        st.session_state.stress += 15
+        st.session_state.message = "You worked in the city."
 
 # =========================================================
 # STATS
@@ -195,17 +194,15 @@ if st.button("🎂 Next Day"):
 st.markdown("---")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("IQ", st.session_state.intelligence)
+c1.metric("IQ", st.session_state.iq)
 c2.metric("Happy", st.session_state.happiness)
 c3.metric("Stress", st.session_state.stress)
-c4.metric("Money", st.session_state.money)
+c4.metric("Energy", st.session_state.energy)
 
 # =========================================================
-# ENDINGS
+# END GAME
 # =========================================================
-if st.session_state.intelligence > 200:
-    st.success("Doctor ending unlocked")
-elif st.session_state.intelligence > 170:
-    st.success("Engineer ending unlocked")
-elif st.session_state.intelligence < 60:
-    st.error("EMOTIONAL DAMAGE ENDING")
+if st.session_state.iq > 200:
+    st.success("Doctor Ending Unlocked")
+elif st.session_state.iq < 40:
+    st.error("EMOTIONAL DAMAGE ENDING 💀")
