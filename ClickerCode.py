@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Chicken Game Dashboard", layout="wide")
 
-st.title("🐔 Chicken Cross the Road — Dashboard Edition")
+st.title("🐔 Chicken Cross the Road — Dashboard Edition (Final)")
 
 html_code = """
 <!DOCTYPE html>
@@ -46,6 +46,24 @@ body {
     font-size: 18px;
     color: #2ecc71;
 }
+
+#controls {
+    text-align: center;
+    margin-top: 15px;
+}
+
+button {
+    padding: 10px 18px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #2ecc71;
+    color: black;
+}
+button:hover {
+    background: #27ae60;
+}
 </style>
 </head>
 
@@ -54,6 +72,10 @@ body {
 <div id="status">Running...</div>
 <div id="score">Score: 0</div>
 
+<div id="controls">
+    <button onclick="restartGame()">🔄 Restart</button>
+</div>
+
 <div id="game"></div>
 
 <script>
@@ -61,20 +83,26 @@ body {
 const width = 7;
 const height = 10;
 
-let chicken = {x: 3, y: 9};
-let cars = [];
-let gameOver = false;
-let score = 0;
+let chicken, cars, gameOver, score;
 
-// spawn cars
-for (let i = 0; i < 5; i++) {
-    cars.push({
-        x: Math.floor(Math.random() * width),
-        y: Math.floor(Math.random() * height)
-    });
+function initGame() {
+    chicken = {x: 3, y: 9};
+    cars = [];
+    gameOver = false;
+    score = 0;
+
+    for (let i = 0; i < 5; i++) {
+        cars.push({
+            x: Math.floor(Math.random() * width),
+            y: Math.floor(Math.random() * height)
+        });
+    }
+
+    document.getElementById("status").innerHTML = "Running...";
+    updateScore();
+    draw();
 }
 
-// render grid
 function draw() {
     const game = document.getElementById("game");
     game.innerHTML = "";
@@ -102,7 +130,6 @@ function draw() {
     }
 }
 
-// move cars
 function updateCars() {
     cars.forEach(c => {
         c.y += 1;
@@ -114,7 +141,6 @@ function updateCars() {
     });
 }
 
-// collision
 function checkCollision() {
     for (let c of cars) {
         if (c.x === chicken.x && c.y === chicken.y) {
@@ -124,28 +150,16 @@ function checkCollision() {
     }
 }
 
-// win check (optional survival mode)
-function checkWin() {
-    if (chicken.y < 0) {
-        gameOver = true;
-        document.getElementById("status").innerHTML = "🎉 YOU WIN!";
-    }
-}
-
-// score update
 function updateScore() {
     document.getElementById("score").innerHTML = "Score: " + score;
 }
 
-// game loop
 function loop() {
     if (gameOver) return;
 
     updateCars();
     checkCollision();
-    checkWin();
     draw();
-    updateScore();
 }
 
 setInterval(loop, 400);
@@ -157,6 +171,7 @@ document.addEventListener("keydown", function(e) {
     if (e.code === "Space") {
         chicken.y -= 1;
         score += 10;
+        updateScore();
     }
 
     if (e.code === "ArrowLeft") {
@@ -168,8 +183,13 @@ document.addEventListener("keydown", function(e) {
     }
 });
 
-draw();
-updateScore();
+// restart button
+function restartGame() {
+    initGame();
+}
+
+// start game
+initGame();
 
 </script>
 
@@ -177,4 +197,4 @@ updateScore();
 </html>
 """
 
-components.html(html_code, height=850)
+components.html(html_code, height=900)
