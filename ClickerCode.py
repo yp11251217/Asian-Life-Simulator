@@ -1,368 +1,161 @@
 import streamlit as st
-import random
-import time
+import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Asian Life Simulator", layout="centered")
+st.set_page_config(page_title="Geometry Dash Streamlit", layout="wide")
 
-WORLD_SIZE = 11
-PRESSURE_INTERVAL = 180
-PRESSURE_DURATION = 120
+st.title("🎮 Geometry Dash (Streamlit HTML Edition)")
+st.write("Press SPACE or click to jump. Avoid obstacles!")
 
-# =========================================================
-# GLOBAL CSS (FULL UI OVERHAUL)
-# =========================================================
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #0e1117;
+game_html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    body { margin:0; overflow:hidden; background:#111; }
+    canvas { background:#111; display:block; margin:auto; }
+    #score {
+        position: absolute;
+        top: 10px;
+        left: 10px;
         color: white;
+        font-family: Arial;
+        font-size: 18px;
     }
+</style>
+</head>
+<body>
+<div id="score">Score: 0</div>
+<canvas id="game" width="900" height="400"></canvas>
 
-    .game-container {
-        background: #0b0f17;
-        padding: 20px;
-        border-radius: 18px;
-        border: 1px solid #222;
-        box-shadow: 0 0 20px rgba(0,0,0,0.4);
-    }
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    .header {
-        text-align: center;
-        padding: 18px;
-        border-radius: 14px;
-        background: linear-gradient(90deg, #111, #1b1b1b);
-        margin-bottom: 15px;
-    }
+let player = {
+    x: 80,
+    y: 300,
+    w: 30,
+    h: 30,
+    dy: 0,
+    gravity: 0.8,
+    jumpPower: -12,
+    grounded: false
+};
 
-    .hud {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin: 10px 0;
-    }
+let obstacles = [];
+let frame = 0;
+let score = 0;
+let gameOver = false;
 
-    .card {
-        background: #151a22;
-        border: 1px solid #333;
-        padding: 10px;
-        border-radius: 12px;
-        text-align: center;
-    }
-
-    .bar {
-        width: 100%;
-        background: #222;
-        border-radius: 10px;
-        overflow: hidden;
-        height: 12px;
-        margin-top: 5px;
-    }
-
-    .fill-hp {
-        height: 100%;
-        background: linear-gradient(90deg, #ff4b4b, #ff0000);
-    }
-
-    .fill-hunger {
-        height: 100%;
-        background: linear-gradient(90deg, #ffd000, #ff8c00);
-    }
-
-    .map {
-        font-family: monospace;
-        background: #0a0a0a;
-        padding: 14px;
-        border-radius: 12px;
-        border: 1px solid #333;
-        text-align: center;
-        white-space: pre;
-        box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
-    }
-
-    .status {
-        padding: 10px;
-        border-radius: 10px;
-        margin: 10px 0;
-        text-align: center;
-    }
-
-    .danger {
-        background: rgba(255,0,0,0.15);
-        border: 1px solid red;
-    }
-
-    .safe {
-        background: rgba(0,255,0,0.08);
-        border: 1px solid #2ecc71;
-    }
-
-    button {
-        border-radius: 10px !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# =========================================================
-# INIT
-# =========================================================
-def init():
-    defaults = {
-        "x": 5,
-        "y": 5,
-
-        "iq": 50,
-        "stress": 20,
-        "happiness": 50,
-        "money": 0,
-        "grade": 70,
-
-        "hunger": 100,
-        "hp": 100,
-
-        "message": "You were born into the system 🏫",
-
-        "pressure_active": False,
-        "last_pressure_time": time.time(),
-        "pressure_start_time": 0,
-        "pressure_type": None,
-
-        "food": [(1,1),(3,7),(6,2),(9,9),(2,8)]
-    }
-
-    for k,v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-init()
-
-# =========================================================
-# ZONES
-# =========================================================
-zones = {
-    (5,5): "🏠 Home",
-    (2,2): "🏫 School",
-    (8,2): "📚 Tuition",
-    (2,8): "🌳 Park",
-    (8,8): "🏙️ City",
+function spawnObstacle() {
+    obstacles.push({
+        x: 900,
+        y: 320,
+        w: 30 + Math.random()*20,
+        h: 30,
+        speed: 6
+    });
 }
 
-# =========================================================
-# CLAMP
-# =========================================================
-def clamp():
-    st.session_state.hp = max(0, min(100, st.session_state.hp))
-    st.session_state.hunger = max(0, min(100, st.session_state.hunger))
-    st.session_state.happiness = max(0, min(100, st.session_state.happiness))
-    st.session_state.stress = max(0, min(200, st.session_state.stress))
+function resetGame() {
+    player.y = 300;
+    player.dy = 0;
+    obstacles = [];
+    score = 0;
+    frame = 0;
+    gameOver = false;
+}
 
-# =========================================================
-# MOVE
-# =========================================================
-def move(dx, dy):
-    st.session_state.x = max(0, min(WORLD_SIZE-1, st.session_state.x+dx))
-    st.session_state.y = max(0, min(WORLD_SIZE-1, st.session_state.y+dy))
-    st.session_state.hunger -= 1
-    st.session_state.stress += 1
-    check_food()
+function jump() {
+    if (player.grounded) {
+        player.dy = player.jumpPower;
+        player.grounded = false;
+    }
+}
 
-# =========================================================
-# FOOD
-# =========================================================
-def check_food():
-    pos = (st.session_state.x, st.session_state.y)
-    if pos in st.session_state.food:
-        st.session_state.food.remove(pos)
-        st.session_state.hunger += 25
-        st.session_state.hp += 10
-        st.session_state.message = "🍜 You ate food"
+document.addEventListener("keydown", e => {
+    if (e.code === "Space") jump();
+    if (e.code === "KeyR") resetGame();
+});
 
-# =========================================================
-# PRESSURE SYSTEM
-# =========================================================
-def pressure():
-    now = time.time()
+document.addEventListener("click", jump);
 
-    if not st.session_state.pressure_active:
-        if now - st.session_state.last_pressure_time > PRESSURE_INTERVAL:
-            st.session_state.pressure_active = True
-            st.session_state.pressure_start_time = now
-            st.session_state.pressure_type = random.choice([
-                "📚 Exam Week",
-                "🧑‍🏫 Tuition Overload",
-                "👨‍👩‍👧 Parental Expectations",
-            ])
+function update() {
+    if (gameOver) return;
 
-    else:
-        if now - st.session_state.pressure_start_time > PRESSURE_DURATION:
-            st.session_state.pressure_active = False
-            st.session_state.last_pressure_time = now
+    frame++;
+    score = Math.floor(frame / 5);
+    document.getElementById("score").innerText = "Score: " + score;
 
-# =========================================================
-# EFFECTS
-# =========================================================
-def effects():
-    st.session_state.hunger -= 0.2
+    // gravity
+    player.dy += player.gravity;
+    player.y += player.dy;
 
-    if st.session_state.hunger < 20:
-        st.session_state.hp -= 0.4
+    if (player.y + player.h >= 350) {
+        player.y = 350 - player.h;
+        player.dy = 0;
+        player.grounded = true;
+    }
 
-    if st.session_state.pressure_active:
-        st.session_state.stress += 0.4
+    // spawn obstacles
+    if (frame % 90 === 0) spawnObstacle();
 
-# =========================================================
-# MAP
-# =========================================================
-def draw_map():
-    out = ""
-    for y in range(WORLD_SIZE):
-        for x in range(WORLD_SIZE):
+    // move obstacles
+    for (let i = 0; i < obstacles.length; i++) {
+        obstacles[i].x -= obstacles[i].speed;
 
-            if (x,y) == (st.session_state.x, st.session_state.y):
-                out += "🧍"
-            elif (x,y) in st.session_state.food:
-                out += "🍜"
-            elif (x,y) in zones:
-                out += "🏫"
-            else:
-                out += "⬜"
-        out += "\n"
-    return out
+        // collision
+        if (
+            player.x < obstacles[i].x + obstacles[i].w &&
+            player.x + player.w > obstacles[i].x &&
+            player.y < obstacles[i].y + obstacles[i].h &&
+            player.y + player.h > obstacles[i].y
+        ) {
+            gameOver = true;
+        }
+    }
 
-# =========================================================
-# GAME LOOP
-# =========================================================
-pressure()
-effects()
-clamp()
+    obstacles = obstacles.filter(o => o.x + o.w > 0);
+}
 
-# =========================================================
-# HEADER (HTML)
-# =========================================================
-st.markdown(
-    """
-    <div class="header">
-        <h1>🎓 Asian Life Simulator</h1>
-        <p style="color:#aaa;">Survive pressure, hunger, and expectations</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-# =========================================================
-# STATUS PANEL
-# =========================================================
-st.markdown(f"<div class='game-container'>", unsafe_allow_html=True)
+    // ground
+    ctx.fillStyle = "#333";
+    ctx.fillRect(0, 350, 900, 50);
 
-st.markdown(f"### 📍 {zones.get((st.session_state.x,st.session_state.y),'🟫 Street')}")
-st.write(st.session_state.message)
+    // player
+    ctx.fillStyle = "#00ffcc";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
 
-# =========================================================
-# PRESSURE STATUS
-# =========================================================
-if st.session_state.pressure_active:
-    st.markdown(
-        f"""
-        <div class="status danger">
-            ⚠️ {st.session_state.pressure_type}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        """
-        <div class="status safe">
-            🙂 Normal Life
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    // obstacles
+    ctx.fillStyle = "#ff4444";
+    for (let o of obstacles) {
+        ctx.fillRect(o.x, o.y, o.w, o.h);
+    }
 
-# =========================================================
-# HUD (HTML STATS)
-# =========================================================
-hp_bar = int(st.session_state.hp)
-hg_bar = int(st.session_state.hunger)
+    // game over
+    if (gameOver) {
+        ctx.fillStyle = "white";
+        ctx.font = "40px Arial";
+        ctx.fillText("GAME OVER", 320, 200);
+        ctx.font = "20px Arial";
+        ctx.fillText("Press R to restart", 340, 240);
+    }
+}
 
-st.markdown(
-f"""
-<div class="hud">
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
 
-<div class="card">
-<b>❤️ HP</b>
-<div class="bar"><div class="fill-hp" style="width:{hp_bar}%"></div></div>
-</div>
+loop();
+</script>
+</body>
+</html>
+"""
 
-<div class="card">
-<b>🍗 Hunger</b>
-<div class="bar"><div class="fill-hunger" style="width:{hg_bar}%"></div></div>
-</div>
-
-<div class="card"><b>😰 Stress</b><br>{int(st.session_state.stress)}</div>
-<div class="card"><b>📊 Grade</b><br>{int(st.session_state.grade)}</div>
-
-</div>
-""",
-unsafe_allow_html=True
-)
-
-# =========================================================
-# MAP (HTML)
-# =========================================================
-st.markdown(f"<div class='map'>{draw_map()}</div>", unsafe_allow_html=True)
-
-# =========================================================
-# MOVEMENT
-# =========================================================
-st.markdown("### 🧭 Movement")
-
-c1,c2,c3 = st.columns(3)
-
-with c1:
-    if st.button("⬅️"):
-        move(-1,0); st.rerun()
-    if st.button("⬇️"):
-        move(0,1); st.rerun()
-
-with c2:
-    if st.button("⬆️"):
-        move(0,-1); st.rerun()
-
-with c3:
-    if st.button("➡️"):
-        move(1,0); st.rerun()
-
-# =========================================================
-# ACTIONS
-# =========================================================
-st.markdown("### 🎮 Actions")
-
-zone = zones.get((st.session_state.x,st.session_state.y),"Street")
-
-if zone == "🏠 Home":
-    if st.button("😴 Rest"):
-        st.session_state.hp += 10
-        st.session_state.hunger -= 2
-        st.rerun()
-
-elif zone == "🏙️ City":
-    if st.button("💼 Work"):
-        st.session_state.money += random.randint(10,50)
-        st.session_state.hunger -= 5
-        st.rerun()
-
-# =========================================================
-# ENDINGS
-# =========================================================
-st.markdown("---")
-
-if st.session_state.hp <= 0:
-    st.error("💀 TOTAL FAILURE ENDING")
-
-elif st.session_state.happiness <= 5:
-    st.warning("😐 EMOTIONAL DAMAGE ENDING")
-
-st.markdown("</div>", unsafe_allow_html=True)
+components.html(game_html, height=450)
