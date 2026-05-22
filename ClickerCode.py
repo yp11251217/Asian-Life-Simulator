@@ -1,154 +1,165 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import random
-from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Chicken Cross", layout="centered")
+st.set_page_config(page_title="Chicken Dashboard Game", layout="wide")
 
-WIDTH = 7
-HEIGHT = 12
+st.title("🐔 Chicken Cross the Road — HTML Dashboard Game")
 
+html_code = """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+    font-family: Arial;
+    background: #111;
+    color: white;
+}
 
-def init_game():
-    return {
-        "chicken_x": WIDTH // 2,
-        "chicken_y": HEIGHT - 1,
-        "cars": [(random.randint(0, WIDTH - 1), y) for y in range(2, HEIGHT - 2, 2)],
-        "game_over": False,
-        "win": False,
-        "score": 0,
-    }
+#game {
+    display: grid;
+    grid-template-columns: repeat(7, 60px);
+    gap: 3px;
+    justify-content: center;
+    margin-top: 20px;
+}
 
+.cell {
+    width: 60px;
+    height: 60px;
+    background: #222;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    border-radius: 6px;
+}
 
-if "game" not in st.session_state:
-    st.session_state.game = init_game()
+.info {
+    text-align: center;
+    margin-top: 10px;
+    color: #aaa;
+}
 
-game = st.session_state.game
+#status {
+    text-align: center;
+    font-size: 22px;
+    margin-top: 10px;
+}
+</style>
+</head>
 
-# Auto refresh (game loop)
-st_autorefresh(interval=600, key="game_loop")
+<body>
 
-st.title("🐔 Chicken Cross the Road (SPACEBAR EDITION)")
+<div class="info">
+Press <b>SPACEBAR</b> to move forward ⬆️ | Avoid 🚗 cars
+</div>
 
-# -----------------------------
-# SPACEBAR CONTROL (HTML + JS)
-# -----------------------------
-components.html("""
+<div id="status">Running...</div>
+
+<div id="game"></div>
+
 <script>
-document.addEventListener('keydown', function(event) {
-    if (event.code === 'Space') {
-        fetch('/_stcore/stream', {
-            method: 'POST',
-            body: JSON.stringify({action: "forward"})
-        });
+
+const width = 7;
+const height = 10;
+
+let chicken = {x: 3, y: 9};
+let cars = [];
+let gameOver = false;
+
+// spawn cars
+for (let i = 0; i < 4; i++) {
+    cars.push({
+        x: Math.floor(Math.random() * width),
+        y: Math.floor(Math.random() * height)
+    });
+}
+
+// render grid
+function draw() {
+    const game = document.getElementById("game");
+    game.innerHTML = "";
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+
+            let cell = document.createElement("div");
+            cell.className = "cell";
+
+            // chicken
+            if (chicken.x === x && chicken.y === y) {
+                cell.innerHTML = "🐔";
+                cell.style.background = "#2ecc71";
+            }
+
+            // cars
+            cars.forEach(c => {
+                if (c.x === x && c.y === y) {
+                    cell.innerHTML = "🚗";
+                    cell.style.background = "#e74c3c";
+                }
+            });
+
+            game.appendChild(cell);
+        }
+    }
+}
+
+// move cars down
+function updateCars() {
+    cars.forEach(c => {
+        c.y += 1;
+        if (c.y >= height) {
+            c.y = 0;
+            c.x = Math.floor(Math.random() * width);
+        }
+    });
+}
+
+// collision detection
+function checkCollision() {
+    for (let c of cars) {
+        if (c.x === chicken.x && c.y === chicken.y) {
+            gameOver = true;
+            document.getElementById("status").innerHTML = "💥 GAME OVER";
+        }
+    }
+}
+
+// win condition
+function checkWin() {
+    if (chicken.y < 0) {
+        gameOver = true;
+        document.getElementById("status").innerHTML = "🎉 YOU WIN!";
+    }
+}
+
+// game loop
+function loop() {
+    if (gameOver) return;
+
+    updateCars();
+    checkCollision();
+    checkWin();
+    draw();
+}
+
+setInterval(loop, 500);
+
+// spacebar control
+document.addEventListener("keydown", function(e) {
+    if (e.code === "Space" && !gameOver) {
+        chicken.y -= 1;
     }
 });
+
+draw();
+
 </script>
 
-<div style="text-align:center;color:gray;">
-Press <b>SPACEBAR</b> to move forward ⬆️
-</div>
-""", height=80)
+</body>
+</html>
+"""
 
-
-# -----------------------------
-# MOVE CHICKEN ON SPACE PRESS
-# -----------------------------
-if st.session_state.get("move_forward"):
-    game["chicken_y"] -= 1
-    st.session_state["move_forward"] = False
-
-
-# -----------------------------
-# MOVE CAR LOGIC
-# -----------------------------
-new_cars = []
-for x, y in game["cars"]:
-    y += 1
-    if y >= HEIGHT:
-        y = 0
-        x = random.randint(0, WIDTH - 1)
-    new_cars.append((x, y))
-game["cars"] = new_cars
-
-
-# -----------------------------
-# COLLISION DETECTION
-# -----------------------------
-for cx, cy in game["cars"]:
-    if cx == game["chicken_x"] and cy == game["chicken_y"]:
-        game["game_over"] = True
-
-# Win condition
-if game["chicken_y"] < 0:
-    game["win"] = True
-
-
-# -----------------------------
-# RENDER GRID (HTML)
-# -----------------------------
-def render():
-    html = """
-    <div style="
-        display:grid;
-        grid-template-columns: repeat(7, 50px);
-        gap:2px;
-        justify-content:center;
-        margin-top:20px;
-        font-size:24px;
-    ">
-    """
-
-    for y in range(HEIGHT):
-        for x in range(WIDTH):
-
-            bg = "#f5f5f5"
-            content = ""
-
-            if (x, y) == (game["chicken_x"], game["chicken_y"]):
-                content = "🐔"
-                bg = "#b6ffb6"
-
-            elif (x, y) in game["cars"]:
-                content = "🚗"
-                bg = "#ff8a8a"
-
-            html += f"""
-            <div style="
-                width:50px;height:50px;
-                background:{bg};
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                border:1px solid #ddd;">
-                {content}
-            </div>
-            """
-
-    html += "</div>"
-    return html
-
-
-# -----------------------------
-# GAME STATUS
-# -----------------------------
-if game["game_over"]:
-    st.error("💥 Game Over! The chicken got hit by a car.")
-elif game["win"]:
-    st.success("🎉 You crossed the road safely!")
-else:
-    st.info("Use SPACEBAR to move forward. Avoid cars 🚗")
-
-
-# -----------------------------
-# SHOW GAME
-# -----------------------------
-components.html(render(), height=650)
-
-
-# -----------------------------
-# RESET
-# -----------------------------
-if st.button("🔄 Restart"):
-    st.session_state.game = init_game()
-    st.rerun()
+components.html(html_code, height=800)
