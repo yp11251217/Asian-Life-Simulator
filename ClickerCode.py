@@ -1,44 +1,41 @@
 import streamlit as st
 import random
+import time
 
 # =========================================================
 # SETUP
 # =========================================================
-st.set_page_config(page_title="2D Life Game", layout="centered")
+st.set_page_config(page_title="Asian Life Simulator", layout="centered")
 
-WORLD_SIZE = 15
-VIEW_SIZE = 7  # camera window size
+WORLD_SIZE = 11
 
-zones = {
-    (5, 5): "🏠 Home",
-    (2, 2): "🏫 School",
-    (10, 3): "📚 Tuition",
-    (3, 10): "🌳 Park",
-    (12, 12): "🏙️ City",
-}
-
-zone_icons = {
-    "🏠 Home": "🏠",
-    "🏫 School": "🏫",
-    "📚 Tuition": "📚",
-    "🌳 Park": "🌳",
-    "🏙️ City": "🏙️",
-}
+PRESSURE_INTERVAL = 180   # every 3 minutes
+PRESSURE_DURATION = 120   # 2 minutes
 
 # =========================================================
 # INIT STATE
 # =========================================================
 def init():
     defaults = {
-        "x": 7,
-        "y": 7,
+        "x": 5,
+        "y": 5,
+
         "iq": 50,
-        "happiness": 50,
         "stress": 20,
-        "energy": 100,
+        "happiness": 50,
         "money": 0,
-        "message": "Spawned in world 🌍",
+
+        "grade": 70,  # academic performance score
+
+        "message": "You were born into the system 🏫",
+
+        # pressure system
+        "pressure_active": False,
+        "last_pressure_time": time.time(),
+        "pressure_start_time": 0,
+        "pressure_type": None,
     }
+
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -46,131 +43,214 @@ def init():
 init()
 
 # =========================================================
-# MOVEMENT
+# ZONES
+# =========================================================
+zones = {
+    (5, 5): "🏠 Home",
+    (2, 2): "🏫 School",
+    (8, 2): "📚 Tuition",
+    (2, 8): "🌳 Park",
+    (8, 8): "🏙️ City",
+}
+
+# =========================================================
+# MOVE SYSTEM
 # =========================================================
 def move(dx, dy):
-    if st.session_state.energy <= 0:
-        st.session_state.message = "Too tired to move 😴"
-        return
-
     st.session_state.x = max(0, min(WORLD_SIZE - 1, st.session_state.x + dx))
     st.session_state.y = max(0, min(WORLD_SIZE - 1, st.session_state.y + dy))
 
-    st.session_state.energy -= 1
-    st.session_state.message = f"Moved to ({st.session_state.x}, {st.session_state.y})"
+    st.session_state.stress += 1
+    st.session_state.message = "You moved."
 
 # =========================================================
 # ZONE DETECTION
 # =========================================================
-def get_zone(x, y):
-    return zones.get((x, y), "🟫 Street")
+def get_zone():
+    return zones.get((st.session_state.x, st.session_state.y), "🟫 Street")
 
 # =========================================================
-# CAMERA VIEW (IMPORTANT FOR GAME FEEL)
+# PRESSURE EVENT SYSTEM (CORE GAME LOOP)
 # =========================================================
-def get_view():
-    half = VIEW_SIZE // 2
-    cx, cy = st.session_state.x, st.session_state.y
+def update_pressure_system():
+    now = time.time()
 
-    min_x = max(0, cx - half)
-    max_x = min(WORLD_SIZE - 1, cx + half)
-    min_y = max(0, cy - half)
-    max_y = min(WORLD_SIZE - 1, cy + half)
+    # START PRESSURE EVENT
+    if not st.session_state.pressure_active:
+        if now - st.session_state.last_pressure_time >= PRESSURE_INTERVAL:
 
-    return min_x, max_x, min_y, max_y
+            st.session_state.pressure_active = True
+            st.session_state.pressure_start_time = now
+
+            st.session_state.pressure_type = random.choice([
+                "📚 Exam Week",
+                "🧑‍🏫 Tuition Overload",
+                "👨‍👩‍👧 Parental Expectations",
+            ])
+
+            st.session_state.message = f"⚠️ {st.session_state.pressure_type} has started!"
+
+    # END PRESSURE EVENT
+    else:
+        if now - st.session_state.pressure_start_time >= PRESSURE_DURATION:
+            st.session_state.pressure_active = False
+            st.session_state.last_pressure_time = now
+            st.session_state.pressure_type = None
+            st.session_state.message = "Pressure period ended. You can breathe again."
 
 # =========================================================
-# RENDER MAP
+# PRESSURE EFFECTS (THIS IS THE "GAMEPLAY")
+# =========================================================
+def apply_pressure_effects():
+    if not st.session_state.pressure_active:
+        return
+
+    p = st.session_state.pressure_type
+
+    # passive stress increase
+    st.session_state.stress += 0.3
+
+    if p == "📚 Exam Week":
+        st.session_state.iq += 0.2
+        st.session_state.stress += 0.2
+        st.session_state.grade += 0.3
+
+    elif p == "🧑‍🏫 Tuition Overload":
+        st.session_state.iq += 0.4
+        st.session_state.money -= 0.1
+        st.session_state.stress += 0.5
+
+    elif p == "👨‍👩‍👧 Parental Expectations":
+        st.session_state.stress += 0.7
+        st.session_state.happiness -= 0.3
+
+# =========================================================
+# ACTIONS BY ZONE
+# =========================================================
+def actions():
+    zone = get_zone()
+
+    st.markdown("### 🎮 Actions")
+
+    if zone == "🏠 Home":
+        if st.button("😴 Rest"):
+            st.session_state.happiness += 5
+            st.session_state.stress -= 5
+            st.session_state.message = "You rested at home."
+            st.rerun()
+
+        if st.button("📖 Self Study"):
+            st.session_state.iq += 2
+            st.session_state.stress += 3
+            st.session_state.grade += 1
+            st.session_state.message = "You studied alone."
+            st.rerun()
+
+    elif zone == "🏫 School":
+        if st.button("📝 Attend Class"):
+            st.session_state.grade += 3
+            st.session_state.stress += 2
+            st.session_state.message = "You attended school."
+            st.rerun()
+
+    elif zone == "📚 Tuition":
+        if st.button("📚 Extra Study"):
+            st.session_state.iq += 5
+            st.session_state.stress += 6
+            st.session_state.grade += 4
+            st.session_state.message = "Tuition grind activated."
+            st.rerun()
+
+    elif zone == "🌳 Park":
+        if st.button("😌 Relax"):
+            st.session_state.happiness += 10
+            st.session_state.stress -= 10
+            st.session_state.message = "You recovered mentally."
+            st.rerun()
+
+    elif zone == "🏙️ City":
+        if st.button("💼 Part-time Job"):
+            earn = random.randint(20, 80)
+            st.session_state.money += earn
+            st.session_state.stress += 5
+            st.session_state.happiness -= 2
+            st.session_state.message = f"You earned ${earn}"
+            st.rerun()
+
+# =========================================================
+# MAP
 # =========================================================
 def draw_map():
-    min_x, max_x, min_y, max_y = get_view()
-
     grid = ""
 
-    for y in range(min_y, max_y + 1):
-        for x in range(min_x, max_x + 1):
+    for y in range(WORLD_SIZE):
+        for x in range(WORLD_SIZE):
 
             if x == st.session_state.x and y == st.session_state.y:
                 grid += "🧍"
+
+            elif st.session_state.pressure_active and random.random() < 0.02:
+                grid += "⚠️"
+
             elif (x, y) in zones:
-                grid += zone_icons[zones[(x, y)]]
+                grid += "🏫"
+
             else:
                 grid += "⬜"
+
         grid += "\n"
 
     return grid
 
 # =========================================================
+# GAME LOOP
+# =========================================================
+update_pressure_system()
+apply_pressure_effects()
+
+# =========================================================
 # UI
 # =========================================================
-st.title("🗺️ 2D Life Game (Streamlit Edition)")
+st.title("🎓 Asian Life Simulator")
 
-st.subheader(f"📍 Location: {get_zone(st.session_state.x, st.session_state.y)}")
+st.subheader(f"📍 Location: {get_zone()}")
 st.write(st.session_state.message)
 
-st.markdown("### 🗺️ World")
+if st.session_state.pressure_active:
+    st.error(f"⚠️ ACTIVE: {st.session_state.pressure_type}")
+else:
+    st.success("🙂 Normal life period")
+
 st.text(draw_map())
 
 # =========================================================
-# CONTROLS (GAMEPAD STYLE)
+# CONTROLS
 # =========================================================
-st.markdown("### 🎮 Controls")
+c1, c2, c3 = st.columns(3)
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("⬅️ Left"):
+with c1:
+    if st.button("⬅️"):
         move(-1, 0)
         st.rerun()
 
-    if st.button("⬇️ Down"):
+    if st.button("⬇️"):
         move(0, 1)
         st.rerun()
 
-with col2:
-    if st.button("⬆️ Up"):
+with c2:
+    if st.button("⬆️"):
         move(0, -1)
         st.rerun()
 
-with col3:
-    if st.button("➡️ Right"):
+with c3:
+    if st.button("➡️"):
         move(1, 0)
         st.rerun()
 
 # =========================================================
 # ACTIONS
 # =========================================================
-zone = get_zone(st.session_state.x, st.session_state.y)
-
-st.markdown("### ⚡ Actions")
-
-if zone == "🏠 Home":
-    if st.button("😴 Sleep"):
-        st.session_state.energy += 30
-        st.session_state.message = "You recovered energy"
-        st.rerun()
-
-elif zone == "🏫 School":
-    if st.button("📝 Study"):
-        st.session_state.iq += 10
-        st.session_state.stress += 10
-        st.session_state.message = "Studying hard..."
-        st.rerun()
-
-elif zone == "🌳 Park":
-    if st.button("😌 Relax"):
-        st.session_state.happiness += 20
-        st.session_state.stress -= 10
-        st.session_state.message = "You feel better"
-        st.rerun()
-
-elif zone == "🏙️ City":
-    if st.button("💼 Work"):
-        earn = random.randint(20, 80)
-        st.session_state.money += earn
-        st.session_state.stress += 10
-        st.session_state.message = f"You earned ${earn}"
-        st.rerun()
+actions()
 
 # =========================================================
 # STATS
@@ -178,17 +258,24 @@ elif zone == "🏙️ City":
 st.markdown("---")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("IQ", st.session_state.iq)
-c2.metric("Happiness", st.session_state.happiness)
-c3.metric("Stress", st.session_state.stress)
-c4.metric("Energy", st.session_state.energy)
+c1.metric("🧠 IQ", round(st.session_state.iq))
+c2.metric("😰 Stress", round(st.session_state.stress))
+c3.metric("😊 Happiness", round(st.session_state.happiness))
+c4.metric("📊 Grade", round(st.session_state.grade))
+
+st.metric("💰 Money", round(st.session_state.money))
 
 # =========================================================
 # ENDINGS
 # =========================================================
-if st.session_state.iq >= 150:
-    st.success("🧠 GENIUS ENDING UNLOCKED")
+if st.session_state.grade >= 150:
+    st.success("🎓 Top Student Ending Unlocked")
+
 elif st.session_state.stress >= 120:
-    st.error("💀 BURNOUT ENDING")
-elif st.session_state.energy <= 0:
-    st.error("😴 YOU PASSED OUT")
+    st.error("💥 Burnout Ending")
+
+elif st.session_state.happiness <= 10:
+    st.warning("😐 Empty Life Ending")
+
+elif st.session_state.money >= 500:
+    st.success("💼 Financial Stability Ending")
