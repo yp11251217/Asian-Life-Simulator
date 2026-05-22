@@ -1,154 +1,113 @@
 import streamlit as st
+import time
 import random
 
-# -----------------------------
-# GAME STATE INIT
-# -----------------------------
-if "distance" not in st.session_state:
-    st.session_state.distance = 10  # teacher distance (0 = caught)
+st.set_page_config(page_title="Neon Reaction Game", page_icon="⚡", layout="centered")
 
-if "level" not in st.session_state:
-    st.session_state.level = 1
+# ---- Styling ----
+st.markdown("""
+<style>
+body {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+.stApp {
+    background: transparent;
+    color: white;
+}
+.game-card {
+    background: rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+}
+.title {
+    font-size: 40px;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(90deg, #00ffe0, #ff00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.sub {
+    text-align:center;
+    opacity: 0.8;
+    margin-bottom: 20px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-if "weapon" not in st.session_state:
-    st.session_state.weapon = None
+# ---- State ----
+if "start_time" not in st.session_state:
+    st.session_state.start_time = None
+if "waiting" not in st.session_state:
+    st.session_state.waiting = False
+if "score" not in st.session_state:
+    st.session_state.score = []
+if "color" not in st.session_state:
+    st.session_state.color = "red"
 
-if "damage" not in st.session_state:
-    st.session_state.damage = 0
+# ---- UI ----
+st.markdown("<div class='game-card'>", unsafe_allow_html=True)
+st.markdown("<div class='title'>⚡ Neon Reaction Game</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub'>Click as fast as you can when it turns GREEN</div>", unsafe_allow_html=True)
 
-if "question" not in st.session_state:
-    st.session_state.question = None
-
-if "answer" not in st.session_state:
-    st.session_state.answer = None
-
-if "message" not in st.session_state:
-    st.session_state.message = ""
+col1, col2 = st.columns(2)
 
 
-# -----------------------------
-# QUESTION GENERATOR
-# -----------------------------
-def generate_question(level):
-    if level == 1:
-        n = random.randint(5, 8)
-        r = random.randint(2, 4)
-        q = f"How many permutations of {n} items taken {r} at a time?"
-        a = factorial(n) // factorial(n - r)
+def start_game():
+    st.session_state.waiting = True
+    st.session_state.color = "red"
+    st.session_state.start_time = None
+    st.session_state.delay = random.uniform(1.5, 4.0)
+    st.session_state.trigger_time = time.time() + st.session_state.delay
 
-    elif level == 2:
-        n = random.randint(6, 10)
-        r = random.randint(2, 5)
-        q = f"How many combinations of {n} items taken {r} at a time?"
-        a = factorial(n) // (factorial(r) * factorial(n - r))
 
+def click_button():
+    now = time.time()
+    if st.session_state.start_time is None:
+        st.session_state.score.append("Too early ❌")
     else:
-        n = random.randint(5, 9)
-        r = random.randint(2, 5)
-        q = f"In how many ways can you arrange {r} items from {n} distinct items in a circle?"
-        a = factorial(r - 1) * combination(n, r)
-
-    return q, a
+        reaction = now - st.session_state.start_time
+        st.session_state.score.append(f"{reaction:.3f} sec ⚡")
+    st.session_state.waiting = False
+    st.session_state.start_time = None
 
 
-def factorial(x):
-    return 1 if x == 0 else x * factorial(x - 1)
+with col1:
+    if st.button("Start 🚀"):
+        start_game()
 
+with col2:
+    if st.button("Click ⚡", disabled=not st.session_state.waiting):
+        click_button()
 
-def combination(n, r):
-    return factorial(n) // (factorial(r) * factorial(n - r))
+# ---- Game logic ----
+if st.session_state.waiting:
+    now = time.time()
+    if st.session_state.start_time is None and now >= st.session_state.trigger_time:
+        st.session_state.start_time = time.time()
+        st.session_state.color = "green"
 
+# ---- Visual indicator ----
+color = st.session_state.color
+st.markdown(
+    f"""
+    <div style='margin-top:20px; height:120px; border-radius:20px;
+    background:{color}; display:flex; align-items:center; justify-content:center;
+    font-size:24px; font-weight:bold;'>
+    {"CLICK NOW! ⚡" if color=="green" else "WAIT..."}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# -----------------------------
-# WEAPON SYSTEM
-# -----------------------------
-def get_weapon():
-    weapons = [
-        ("Pencil Sword ✏️", 5),
-        ("Notebook Shield 📒", 8),
-        ("Protractor Blade 📐", 12),
-        ("Calculator Cannon 🔢", 20),
-        ("Final Exam Laser 💥", 35),
-    ]
-    return random.choice(weapons)
+# ---- Scoreboard ----
+st.markdown("### Score History")
+if st.session_state.score:
+    for s in st.session_state.score[-8:][::-1]:
+        st.write(s)
+else:
+    st.write("No scores yet")
 
-
-# -----------------------------
-# GAME LOGIC
-# -----------------------------
-def next_question():
-    q, a = generate_question(st.session_state.level)
-    st.session_state.question = q
-    st.session_state.answer = a
-
-
-def check_answer(user_answer):
-    try:
-        user_answer = int(user_answer)
-    except:
-        st.session_state.message = "❌ Invalid input!"
-        return
-
-    if user_answer == st.session_state.answer:
-        st.session_state.message = "✅ Correct! You move forward!"
-
-        st.session_state.distance += 1
-        st.session_state.level += 1
-
-        # reward weapon
-        weapon, dmg = get_weapon()
-        st.session_state.weapon = weapon
-        st.session_state.damage = dmg
-
-        st.session_state.message += f" You picked up {weapon} (Damage {dmg})"
-
-    else:
-        st.session_state.message = "❌ Wrong! Teacher is getting closer!"
-        st.session_state.distance -= 2
-
-
-# -----------------------------
-# UI
-# -----------------------------
-st.title("🏫 Permutation & Combination Escape Game")
-st.write("A teacher is chasing you! Answer correctly to escape and collect weapons.")
-
-st.progress(st.session_state.distance / 20)
-
-st.write(f"👨‍🏫 Teacher Distance: {st.session_state.distance}")
-st.write(f"📊 Level: {st.session_state.level}")
-
-if st.session_state.distance <= 0:
-    st.error("💀 You got caught by the teacher!")
-    st.stop()
-
-if st.session_state.distance >= 20:
-    st.success("🎉 You escaped the school!")
-    st.stop()
-
-if st.session_state.question is None:
-    next_question()
-
-st.subheader("🧠 Question")
-st.write(st.session_state.question)
-
-user_answer = st.text_input("Your Answer:")
-
-if st.button("Submit"):
-    check_answer(user_answer)
-    next_question()
-
-st.write(st.session_state.message)
-
-# -----------------------------
-# FINAL ESCAPE MODE
-# -----------------------------
-if st.session_state.level > 5:
-    st.markdown("## 🔥 Final Boss: Teacher Attack Mode")
-
-    st.write("Use your weapon to fight back!")
-
-    if st.button("Attack Teacher"):
-        damage = st.session_state.damage
-        st.session_state.distance += damage // 5
-        st.success(f"You attacked using {st.session_state.weapon} dealing {damage} damage!")
+st.markdown("</div>", unsafe_allow_html=True)
