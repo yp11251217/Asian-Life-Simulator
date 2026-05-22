@@ -1,314 +1,317 @@
-import streamlit as st
-import time
-import json
-from pathlib import Path
+# Asian Child Life Simulator (Steven He Inspired)
 
-# ==========================================
-# CONFIG
-# ==========================================
+```python
+import streamlit as st
+import random
+
+# =====================================
+# PAGE CONFIG
+# =====================================
 st.set_page_config(
-    page_title="Cookie Clicker",
-    page_icon="🍪",
+    page_title="Asian Child Life Simulator",
+    page_icon="📚",
     layout="centered"
 )
 
-SAVE_FILE = "cookie_save.json"
-
-# ==========================================
-# LOAD GAME
-# ==========================================
-def load_game():
-
-    default_data = {
-        "cookies": 0,
-        "cookies_per_click": 1,
-        "auto_clickers": 0,
-        "farms": 0,
-        "last_tick": time.time()
-    }
-
-    try:
-        if Path(SAVE_FILE).exists():
-
-            with open(SAVE_FILE, "r") as f:
-
-                content = f.read().strip()
-
-                # Prevent empty file crash
-                if not content:
-                    return default_data
-
-                return json.loads(content)
-
-    except json.JSONDecodeError:
-        # Corrupted save file
-        return default_data
-
-    except Exception as e:
-        st.error(f"Save file error: {e}")
-        return default_data
-
-    return default_data
-
-# ==========================================
-# SAVE GAME
-# ==========================================
-def save_game():
-
-    data = {
-        "cookies": st.session_state.cookies,
-        "cookies_per_click": st.session_state.cookies_per_click,
-        "auto_clickers": st.session_state.auto_clickers,
-        "farms": st.session_state.farms,
-        "last_tick": time.time()
-    }
-
-    with open(SAVE_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
-# ==========================================
-# INITIALIZE SESSION STATE
-# ==========================================
+# =====================================
+# SESSION STATE
+# =====================================
 if "initialized" not in st.session_state:
-
-    game = load_game()
-
-    st.session_state.cookies = game["cookies"]
-    st.session_state.cookies_per_click = game["cookies_per_click"]
-    st.session_state.auto_clickers = game["auto_clickers"]
-    st.session_state.farms = game["farms"]
-    st.session_state.last_tick = game["last_tick"]
-
+    st.session_state.age = 6
+    st.session_state.grade = 1
+    st.session_state.intelligence = 50
+    st.session_state.happiness = 50
+    st.session_state.energy = 100
+    st.session_state.social = 50
+    st.session_state.money = 0
+    st.session_state.achievement = "Failure"
+    st.session_state.message = "You are born into an Asian household."
     st.session_state.initialized = True
 
-# ==========================================
-# PASSIVE INCOME
-# ==========================================
-now = time.time()
-
-elapsed = now - st.session_state.last_tick
-
-income_per_second = (
-    st.session_state.auto_clickers * 1 +
-    st.session_state.farms * 5
-)
-
-# Add passive cookies
-st.session_state.cookies += income_per_second * elapsed
-
-# Update timer
-st.session_state.last_tick = now
-
-# ==========================================
-# CSS STYLING
-# ==========================================
+# =====================================
+# STYLING
+# =====================================
 st.markdown("""
 <style>
-
-body {
-    background-color: #f7e7ce;
-}
-
 .main-title {
     text-align: center;
-    font-size: 65px;
+    font-size: 50px;
     font-weight: bold;
-    color: #5c3b1e;
+    color: #d62828;
+}
+
+.subtitle {
+    text-align: center;
+    color: gray;
+    margin-bottom: 30px;
+}
+
+.stat-box {
+    background-color: #f1f1f1;
+    padding: 15px;
+    border-radius: 15px;
     margin-bottom: 10px;
 }
 
-.cookie-counter {
-    text-align: center;
-    font-size: 42px;
-    color: #3d2514;
-    margin-bottom: 25px;
-}
-
-.shop-box {
-    background-color: white;
+.message-box {
+    background-color: #fff3cd;
     padding: 20px;
     border-radius: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+    border: 1px solid #ffe69c;
+    margin-top: 20px;
+    font-size: 20px;
 }
 
-div.stButton > button:first-child {
-    font-size: 90px;
-    height: 200px;
-    width: 200px;
-    border-radius: 50%;
-    border: none;
-    background-color: #c97a3d;
-    transition: 0.1s ease-in-out;
+.big-text {
+    font-size: 24px;
+    font-weight: bold;
 }
-
-div.stButton > button:first-child:hover {
-    transform: scale(1.05);
-}
-
-div.stButton > button:first-child:active {
-    transform: scale(0.95);
-}
-
-.small-text {
-    text-align: center;
-    color: gray;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# HEADER
-# ==========================================
+# =====================================
+# TITLE
+# =====================================
 st.markdown(
-    "<div class='main-title'>🍪 Cookie Clicker</div>",
+    "<div class='main-title'>📚 Asian Child Life Simulator</div>",
     unsafe_allow_html=True
 )
 
 st.markdown(
-    f"<div class='cookie-counter'>{int(st.session_state.cookies)} Cookies</div>",
+    "<div class='subtitle'>Steven He Inspired Simulator</div>",
     unsafe_allow_html=True
 )
 
-# ==========================================
-# COOKIE BUTTON
-# ==========================================
-left, center, right = st.columns([1,2,1])
-
-with center:
-
-    if st.button("🍪"):
-        st.session_state.cookies += st.session_state.cookies_per_click
-        save_game()
-        st.rerun()
-
-# ==========================================
+# =====================================
 # STATS
-# ==========================================
-st.markdown("---")
+# =====================================
+st.subheader("📊 Your Stats")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    st.metric("Cookies Per Click", st.session_state.cookies_per_click)
+    st.metric("Age", st.session_state.age)
+    st.metric("Grade", st.session_state.grade)
+    st.metric("Intelligence", st.session_state.intelligence)
+    st.metric("Energy", st.session_state.energy)
 
 with col2:
-    st.metric("Passive Income", f"{income_per_second}/sec")
+    st.metric("Happiness", st.session_state.happiness)
+    st.metric("Social Life", st.session_state.social)
+    st.metric("Money", f"${st.session_state.money}")
+    st.metric("Achievement", st.session_state.achievement)
 
-# ==========================================
-# SHOP
-# ==========================================
-st.markdown("---")
-st.subheader("🛒 Shop")
-
-# ==========================================
-# AUTO CLICKER
-# ==========================================
-auto_clicker_cost = 50 + (st.session_state.auto_clickers * 20)
-
-st.markdown("<div class='shop-box'>", unsafe_allow_html=True)
-
-st.markdown(f"""
-### 🤖 Auto Clicker
-
-Generates **1 cookie/sec**
-
-Owned: **{st.session_state.auto_clickers}**
-
-Cost: **{auto_clicker_cost}**
-""")
-
-if st.button("Buy Auto Clicker"):
-
-    if st.session_state.cookies >= auto_clicker_cost:
-
-        st.session_state.cookies -= auto_clicker_cost
-        st.session_state.auto_clickers += 1
-
-        save_game()
-        st.rerun()
-
-    else:
-        st.warning("Not enough cookies!")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ==========================================
-# FARM
-# ==========================================
-farm_cost = 250 + (st.session_state.farms * 100)
-
-st.markdown("<div class='shop-box'>", unsafe_allow_html=True)
-
-st.markdown(f"""
-### 🌾 Cookie Farm
-
-Generates **5 cookies/sec**
-
-Owned: **{st.session_state.farms}**
-
-Cost: **{farm_cost}**
-""")
-
-if st.button("Buy Farm"):
-
-    if st.session_state.cookies >= farm_cost:
-
-        st.session_state.cookies -= farm_cost
-        st.session_state.farms += 1
-
-        save_game()
-        st.rerun()
-
-    else:
-        st.warning("Not enough cookies!")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ==========================================
-# CLICK UPGRADE
-# ==========================================
-upgrade_cost = 100 + (st.session_state.cookies_per_click * 50)
-
-st.markdown("<div class='shop-box'>", unsafe_allow_html=True)
-
-st.markdown(f"""
-### ⚡ Stronger Clicks
-
-+1 cookie per click
-
-Current Power: **{st.session_state.cookies_per_click}**
-
-Cost: **{upgrade_cost}**
-""")
-
-if st.button("Upgrade Click Power"):
-
-    if st.session_state.cookies >= upgrade_cost:
-
-        st.session_state.cookies -= upgrade_cost
-        st.session_state.cookies_per_click += 1
-
-        save_game()
-        st.rerun()
-
-    else:
-        st.warning("Not enough cookies!")
-
-st.markdown("</div>", unsafe_allow_html=True)
-
-# ==========================================
-# SAVE GAME
-# ==========================================
-save_game()
-
-# ==========================================
-# FOOTER
-# ==========================================
-st.markdown("---")
-
+# =====================================
+# MESSAGE
+# =====================================
 st.markdown(
-    "<div class='small-text'>Made with Streamlit 🍪</div>",
+    f"<div class='message-box'>{st.session_state.message}</div>",
     unsafe_allow_html=True
 )
+
+# =====================================
+# FUNCTIONS
+# =====================================
+def check_status():
+
+    if st.session_state.intelligence >= 200:
+        st.session_state.achievement = "Doctor"
+
+    elif st.session_state.intelligence >= 170:
+        st.session_state.achievement = "Engineer"
+
+    elif st.session_state.intelligence >= 140:
+        st.session_state.achievement = "Accountant"
+
+    elif st.session_state.intelligence < 60:
+        st.session_state.achievement = "Disappointment"
+
+    if st.session_state.happiness <= 0:
+        st.session_state.message = "You are emotionally damaged from too much homework."
+
+# =====================================
+# ACTIONS
+# =====================================
+st.subheader("🎮 Actions")
+
+col1, col2 = st.columns(2)
+
+# =====================================
+# STUDY
+# =====================================
+with col1:
+
+    if st.button("📖 Study 12 Hours"):
+
+        gain = random.randint(8, 20)
+
+        st.session_state.intelligence += gain
+        st.session_state.energy -= 15
+        st.session_state.happiness -= 10
+
+        st.session_state.message = (
+            f"You studied for 12 hours. +{gain} intelligence. "
+            "Parents say: Why not 13 hours?"
+        )
+
+        check_status()
+        st.rerun()
+
+# =====================================
+# PIANO
+# =====================================
+with col2:
+
+    if st.button("🎹 Practice Piano"):
+
+        st.session_state.intelligence += 5
+        st.session_state.happiness -= 5
+        st.session_state.energy -= 10
+
+        st.session_state.message = (
+            "You practiced piano for competition. "
+            "Neighbor kid plays better."
+        )
+
+        check_status()
+        st.rerun()
+
+# =====================================
+# MATH
+# =====================================
+col3, col4 = st.columns(2)
+
+with col3:
+
+    if st.button("➗ Extra Math Homework"):
+
+        st.session_state.intelligence += 12
+        st.session_state.energy -= 20
+        st.session_state.happiness -= 12
+
+        st.session_state.message = (
+            "You completed 900 math questions. "
+            "Still not enough."
+        )
+
+        check_status()
+        st.rerun()
+
+# =====================================
+# PLAY GAMES
+# =====================================
+with col4:
+
+    if st.button("🎮 Play Video Games"):
+
+        st.session_state.happiness += 15
+        st.session_state.social += 5
+        st.session_state.energy += 5
+
+        chance = random.randint(1, 10)
+
+        if chance <= 4:
+            st.session_state.message = (
+                "EMOTIONAL DAMAGE! Parents caught you gaming."
+            )
+
+            st.session_state.happiness -= 20
+
+        else:
+            st.session_state.message = (
+                "You secretly played games without getting caught."
+            )
+
+        check_status()
+        st.rerun()
+
+# =====================================
+# SLEEP
+# =====================================
+if st.button("😴 Sleep"):
+
+    st.session_state.energy += 30
+    st.session_state.happiness += 5
+
+    if st.session_state.energy > 100:
+        st.session_state.energy = 100
+
+    st.session_state.message = (
+        "You slept peacefully... until parents wake you up for more studying."
+    )
+
+    check_status()
+    st.rerun()
+
+# =====================================
+# AGE UP
+# =====================================
+st.markdown("---")
+
+if st.button("🎂 Next Year"):
+
+    st.session_state.age += 1
+    st.session_state.grade += 1
+
+    st.session_state.energy -= 10
+
+    event = random.choice([
+        "You got compared to cousin again.",
+        "Parents ask why you not doctor yet.",
+        "You got 99%. Parents ask where 1% went.",
+        "You attend another tutoring center.",
+        "Grandma says you too skinny.",
+        "Parents say failure is not option.",
+        "You won math competition.",
+        "You got another homework packet.",
+    ])
+
+    st.session_state.message = event
+
+    # Random stat changes
+    st.session_state.intelligence += random.randint(1, 8)
+    st.session_state.happiness -= random.randint(1, 5)
+
+    # Clamp stats
+    st.session_state.happiness = max(0, st.session_state.happiness)
+    st.session_state.energy = max(0, st.session_state.energy)
+
+    check_status()
+
+    st.rerun()
+
+# =====================================
+# GAME OVER
+# =====================================
+if st.session_state.age >= 30:
+
+    st.markdown("---")
+    st.subheader("🏆 Final Result")
+
+    if st.session_state.intelligence >= 200:
+        st.success("You became a legendary doctor. Parents finally proud.")
+
+    elif st.session_state.intelligence >= 170:
+        st.success("You became an engineer. Parents accept you.")
+
+    elif st.session_state.intelligence >= 140:
+        st.warning("You became accountant. Acceptable.")
+
+    else:
+        st.error("EMOTIONAL DAMAGE! You became disappointment.")
+
+    st.stop()
+
+# =====================================
+# FOOTER
+# =====================================
+st.markdown("---")
+st.caption("Inspired by Steven He comedy videos")
+```
+
+## Run the game
+
+```bash
+pip install streamlit
+streamlit run app.py
+```
