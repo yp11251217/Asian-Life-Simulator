@@ -1,9 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Chicken Game Dashboard", layout="wide")
+st.set_page_config(page_title="Chicken Arcade Game", layout="wide")
 
-st.title("🐔 Chicken Cross the Road — Dashboard Edition (Final)")
+st.title("🐔 Chicken Cross the Road — Scoring Edition")
 
 html_code = """
 <!DOCTYPE html>
@@ -53,7 +53,8 @@ body {
 }
 
 button {
-    padding: 10px 18px;
+    padding: 10px 16px;
+    margin: 5px;
     font-size: 16px;
     border: none;
     border-radius: 8px;
@@ -61,6 +62,7 @@ button {
     background: #2ecc71;
     color: black;
 }
+
 button:hover {
     background: #27ae60;
 }
@@ -73,6 +75,8 @@ button:hover {
 <div id="score">Score: 0</div>
 
 <div id="controls">
+    <button onclick="moveLeft()">⬅️ Left</button>
+    <button onclick="moveRight()">➡️ Right</button>
     <button onclick="restartGame()">🔄 Restart</button>
 </div>
 
@@ -83,13 +87,17 @@ button:hover {
 const width = 7;
 const height = 10;
 
-let chicken, cars, gameOver, score;
+let chicken, cars, gameOver;
+let score;
+let seconds = 0;
 
+// init game
 function initGame() {
     chicken = {x: 3, y: 9};
     cars = [];
     gameOver = false;
     score = 0;
+    seconds = 0;
 
     for (let i = 0; i < 5; i++) {
         cars.push({
@@ -103,6 +111,7 @@ function initGame() {
     draw();
 }
 
+// draw grid
 function draw() {
     const game = document.getElementById("game");
     game.innerHTML = "";
@@ -118,29 +127,31 @@ function draw() {
                 cell.style.background = "#2ecc71";
             }
 
-            cars.forEach(c => {
+            for (let c of cars) {
                 if (c.x === x && c.y === y) {
                     cell.innerHTML = "🚗";
                     cell.style.background = "#e74c3c";
                 }
-            });
+            }
 
             game.appendChild(cell);
         }
     }
 }
 
+// move cars toward chicken
 function updateCars() {
-    cars.forEach(c => {
+    for (let c of cars) {
         c.y += 1;
 
         if (c.y >= height) {
             c.y = 0;
             c.x = Math.floor(Math.random() * width);
         }
-    });
+    }
 }
 
+// check collision (death)
 function checkCollision() {
     for (let c of cars) {
         if (c.x === chicken.x && c.y === chicken.y) {
@@ -150,45 +161,63 @@ function checkCollision() {
     }
 }
 
+// adjacency bonus: +100 if car is next to chicken
+function checkAdjacentBonus() {
+    for (let c of cars) {
+        let dx = Math.abs(c.x - chicken.x);
+        let dy = Math.abs(c.y - chicken.y);
+
+        // adjacent (up, down, left, right, or diagonal)
+        if (dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0)) {
+            score += 100;
+        }
+    }
+}
+
+// score update
 function updateScore() {
     document.getElementById("score").innerHTML = "Score: " + score;
 }
 
+// game loop
 function loop() {
     if (gameOver) return;
 
     updateCars();
     checkCollision();
+    checkAdjacentBonus();
+
     draw();
+    updateScore();
 }
 
 setInterval(loop, 400);
 
-// controls
-document.addEventListener("keydown", function(e) {
-    if (gameOver) return;
-
-    if (e.code === "Space") {
-        chicken.y -= 1;
+// +10 every 5 seconds
+setInterval(() => {
+    if (!gameOver) {
         score += 10;
+        seconds++;
         updateScore();
     }
+}, 5000);
 
-    if (e.code === "ArrowLeft") {
-        if (chicken.x > 0) chicken.x -= 1;
-    }
+// controls (buttons only)
+function moveLeft() {
+    if (gameOver) return;
+    if (chicken.x > 0) chicken.x--;
+}
 
-    if (e.code === "ArrowRight") {
-        if (chicken.x < width - 1) chicken.x += 1;
-    }
-});
+function moveRight() {
+    if (gameOver) return;
+    if (chicken.x < width - 1) chicken.x++;
+}
 
-// restart button
 function restartGame() {
     initGame();
 }
 
-// start game
+// start
 initGame();
 
 </script>
