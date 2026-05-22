@@ -1,9 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="Chicken Arcade Game", layout="wide")
+st.set_page_config(page_title="Swipe Chicken Game", layout="wide")
 
-st.title("🐔 Chicken Cross the Road — Scoring Edition")
+st.title("🐔 Chicken Cross Road — Swipe Edition (Mobile Ready)")
 
 html_code = """
 <!DOCTYPE html>
@@ -14,6 +14,8 @@ body {
     font-family: Arial;
     background: #111;
     color: white;
+    margin: 0;
+    touch-action: none;
 }
 
 #game {
@@ -35,36 +37,31 @@ body {
     border-radius: 6px;
 }
 
-#status {
+#status, #score {
     text-align: center;
-    font-size: 22px;
-    margin-top: 10px;
+    font-size: 20px;
+    margin-top: 8px;
 }
 
 #score {
-    text-align: center;
-    font-size: 18px;
     color: #2ecc71;
 }
 
-#controls {
+#hint {
     text-align: center;
-    margin-top: 15px;
+    color: #888;
+    font-size: 14px;
+    margin-top: 5px;
 }
 
 button {
+    display: block;
+    margin: 10px auto;
     padding: 10px 16px;
-    margin: 5px;
-    font-size: 16px;
     border: none;
     border-radius: 8px;
-    cursor: pointer;
     background: #2ecc71;
-    color: black;
-}
-
-button:hover {
-    background: #27ae60;
+    cursor: pointer;
 }
 </style>
 </head>
@@ -73,12 +70,9 @@ button:hover {
 
 <div id="status">Running...</div>
 <div id="score">Score: 0</div>
+<div id="hint">Swipe left/right anywhere to move 🐔</div>
 
-<div id="controls">
-    <button onclick="moveLeft()">⬅️ Left</button>
-    <button onclick="moveRight()">➡️ Right</button>
-    <button onclick="restartGame()">🔄 Restart</button>
-</div>
+<button onclick="restartGame()">🔄 Restart</button>
 
 <div id="game"></div>
 
@@ -88,16 +82,15 @@ const width = 7;
 const height = 10;
 
 let chicken, cars, gameOver;
-let score;
-let seconds = 0;
+let score = 0;
+let touchStartX = 0;
 
-// init game
+// INIT GAME
 function initGame() {
     chicken = {x: 3, y: 9};
     cars = [];
     gameOver = false;
     score = 0;
-    seconds = 0;
 
     for (let i = 0; i < 5; i++) {
         cars.push({
@@ -111,7 +104,7 @@ function initGame() {
     draw();
 }
 
-// draw grid
+// DRAW GRID
 function draw() {
     const game = document.getElementById("game");
     game.innerHTML = "";
@@ -139,7 +132,7 @@ function draw() {
     }
 }
 
-// move cars toward chicken
+// MOVE CARS DOWN
 function updateCars() {
     for (let c of cars) {
         c.y += 1;
@@ -151,7 +144,7 @@ function updateCars() {
     }
 }
 
-// check collision (death)
+// COLLISION
 function checkCollision() {
     for (let c of cars) {
         if (c.x === chicken.x && c.y === chicken.y) {
@@ -161,32 +154,30 @@ function checkCollision() {
     }
 }
 
-// adjacency bonus: +100 if car is next to chicken
+// ADJACENT BONUS
 function checkAdjacentBonus() {
     for (let c of cars) {
         let dx = Math.abs(c.x - chicken.x);
         let dy = Math.abs(c.y - chicken.y);
 
-        // adjacent (up, down, left, right, or diagonal)
         if (dx <= 1 && dy <= 1 && !(dx === 0 && dy === 0)) {
             score += 100;
         }
     }
 }
 
-// score update
+// SCORE UPDATE
 function updateScore() {
     document.getElementById("score").innerHTML = "Score: " + score;
 }
 
-// game loop
+// GAME LOOP
 function loop() {
     if (gameOver) return;
 
     updateCars();
     checkCollision();
     checkAdjacentBonus();
-
     draw();
     updateScore();
 }
@@ -197,27 +188,58 @@ setInterval(loop, 400);
 setInterval(() => {
     if (!gameOver) {
         score += 10;
-        seconds++;
         updateScore();
     }
 }, 5000);
 
-// controls (buttons only)
-function moveLeft() {
+// SWIPE CONTROLS
+document.addEventListener("touchstart", function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+});
+
+document.addEventListener("touchend", function(e) {
     if (gameOver) return;
+
+    let touchEndX = e.changedTouches[0].screenX;
+    let diff = touchEndX - touchStartX;
+
+    if (Math.abs(diff) < 30) return; // ignore small swipes
+
+    if (diff > 0) {
+        moveRight();
+    } else {
+        moveLeft();
+    }
+});
+
+// mouse drag support (desktop testing)
+document.addEventListener("mousedown", e => touchStartX = e.screenX);
+document.addEventListener("mouseup", e => {
+    if (gameOver) return;
+
+    let diff = e.screenX - touchStartX;
+
+    if (Math.abs(diff) < 30) return;
+
+    if (diff > 0) moveRight();
+    else moveLeft();
+});
+
+// MOVEMENT
+function moveLeft() {
     if (chicken.x > 0) chicken.x--;
 }
 
 function moveRight() {
-    if (gameOver) return;
     if (chicken.x < width - 1) chicken.x++;
 }
 
+// RESTART
 function restartGame() {
     initGame();
 }
 
-// start
+// START
 initGame();
 
 </script>
